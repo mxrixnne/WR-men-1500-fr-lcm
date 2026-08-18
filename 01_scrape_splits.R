@@ -9,6 +9,7 @@
 library(tidyverse)
 library(rvest)
 library(ggbraid) # extension for ggplot2; download from GitHub - remotes::install_github("nsgrantham/ggbraid")
+library(janitor)
 
 # mss = myswimsplit, ss = swimswam
 url_mss <- "https://myswimsplits.com/mens-1500m-freestyle-long-course/"
@@ -19,9 +20,53 @@ webpage_ss <- read_html(url_ss)
 
 table_mss <- webpage_mss |> 
   html_element("#tablepress-78") |> 
-  html_table(header = TRUE)
+  html_table(header = FALSE)
 
 table_ss <- webpage_ss |> 
   html_node("table[style*='width: 83.2039%']") |> 
-  html_table()
+  html_table(header = FALSE)
+
+# Clean dfs
+df_mss_wide <- table_mss |> 
+  row_to_names(row_number = 2) |>
+  rename("distance" = 1,
+         "Finke" = "Bobby Finke",
+         "Yang" = "Sun Yang") |> 
+  slice(-c(1:6)) |>
+  mutate(
+    across(where(is.character), trimws),
+    across(everything(), ~na_if(., ""))) |> 
+  filter(!if_all(everything(), is.na)) |> 
+  filter(!distance %in% c("Strokes", "Split Time:", "Total Time:", "50m PB:",
+                          "Time off 50m PB:", "Percentage of 50m PB:")) |> 
+  select(1:3) |> 
+  mutate(
+    distance = str_remove(distance, "m Split$"),
+    across(everything(), as.numeric))
+
+pairs <- tibble(
+  distance1 = seq(50, 1450, by = 100),
+  distance2 = seq(100, 1500, by = 100)
+)
+
+
+
+
+
+df_ss_wide <- table_ss |> 
+  select(1,4) |> 
+  row_to_names(row_number = 1) |> 
+  rename("distance" = 1,
+         "Liebmann" = 2) |> 
+  slice(-c(1,17)) |> 
+  mutate(
+    distance = str_remove(distance, "m"),
+    Liebmann = str_remove(Liebmann, "\\s*\\(.*?\\)"),
+    across(everything(), as.numeric))
+
+df_wide <- left_join(df_mss_wide, df_ss_wide)
+  
+  
+  
+
 
