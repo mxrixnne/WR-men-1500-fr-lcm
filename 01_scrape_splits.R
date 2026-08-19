@@ -10,6 +10,7 @@ library(tidyverse)
 library(rvest)
 library(ggbraid) # extension for ggplot2; download from GitHub - remotes::install_github("nsgrantham/ggbraid")
 library(janitor)
+library(gganimate)
 
 # mss = myswimsplit, ss = swimswam
 url_mss <- "https://myswimsplits.com/mens-1500m-freestyle-long-course/"
@@ -39,19 +40,13 @@ df_mss_wide <- table_mss |>
   filter(!if_all(everything(), is.na)) |> 
   filter(!distance %in% c("Strokes", "Split Time:", "Total Time:", "50m PB:",
                           "Time off 50m PB:", "Percentage of 50m PB:")) |> 
-  select(1:3) |> 
+  select(1:3)|> 
   mutate(
     distance = str_remove(distance, "m Split$"),
-    across(everything(), as.numeric))
-
-pairs <- tibble(
-  distance1 = seq(50, 1450, by = 100),
-  distance2 = seq(100, 1500, by = 100)
-)
-
-
-
-
+    across(everything(), as.numeric))|> 
+  arrange(distance) |> 
+  mutate(across(-distance, \(x) x + lag(x))) |> # sum with previous 50m row
+  filter(distance %% 100 == 0)
 
 df_ss_wide <- table_ss |> 
   select(1,4) |> 
@@ -65,8 +60,14 @@ df_ss_wide <- table_ss |>
     across(everything(), as.numeric))
 
 df_wide <- left_join(df_mss_wide, df_ss_wide)
-  
-  
-  
+
+df_long <- df_wide |> 
+  pivot_longer(
+    cols = -distance,
+    names_to = "swimmer",
+    values_to = "time"
+  )
+
+
 
 
