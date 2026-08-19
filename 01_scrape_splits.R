@@ -8,9 +8,7 @@
 # Packages
 library(tidyverse)
 library(rvest)
-library(ggbraid) # extension for ggplot2; download from GitHub - remotes::install_github("nsgrantham/ggbraid")
 library(janitor)
-library(gganimate)
 
 # mss = myswimsplit, ss = swimswam
 url_mss <- "https://myswimsplits.com/mens-1500m-freestyle-long-course/"
@@ -68,6 +66,5 @@ df_long <- df_wide |>
     values_to = "time"
   )
 
-
-
-
+dir.create("data", showWarnings = FALSE, recursive = TRUE)
+write_csv(df_wide, "data/mens_1500_fr_wr.csv")
