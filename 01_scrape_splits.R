@@ -2,7 +2,7 @@
 
 # Source:
 #   myswimsplits.com for Bobby Finke and Sun Yang
-#   swimswam.com for Johannes Liebmann
+#   swimswam.com an dd swimmingworldmagazine.com for Johannes Liebmann
 
 ### Setup ###
 # Packages
@@ -26,25 +26,51 @@ table_ss <- webpage_ss |>
   html_table(header = FALSE)
 
 # Clean dfs
-df_mss_wide <- table_mss |> 
+df_mss_clean <- table_mss |> 
   row_to_names(row_number = 2) |>
   rename("distance" = 1,
          "Finke" = "Bobby Finke",
-         "Yang" = "Sun Yang") |> 
+         "Yang" = "Sun Yang",
+         "Hafnaoui" = "Ahmed Hafnaoui",
+         "Paltrinieri" = "Gregorio Paltrinieri"
+         
+         ) |> 
+  select(1:5)|> 
   slice(-c(1:6)) |>
   mutate(
-    across(where(is.character), trimws),
+    across(where(is.character), ~str_remove(.x, "\\s*,\\s*$")),
     across(everything(), ~na_if(., ""))) |> 
   filter(!if_all(everything(), is.na)) |> 
   filter(!distance %in% c("Strokes", "Split Time:", "Total Time:", "50m PB:",
                           "Time off 50m PB:", "Percentage of 50m PB:")) |> 
-  select(1:3)|> 
   mutate(
     distance = str_remove(distance, "m Split$"),
     across(everything(), as.numeric))|> 
-  arrange(distance) |> 
+  arrange(distance)
+
+df_mss_last50 <- df_mss_clean |> 
+  filter(distance == 1500)
+
+df_mss_wide <- df_mss_clean |>  
   mutate(across(-distance, \(x) x + lag(x))) |> # sum with previous 50m row
   filter(distance %% 100 == 0)
+
+# manual correction to myswimsplits source data
+# verified against total race time and cross-checked with swimswam
+df_mss_wide <- df_mss_wide |> 
+  mutate(
+    Finke = case_when(
+      distance == 900 ~ 58.19,
+      distance == 1400 ~ 58.64,
+      TRUE ~ Finke
+    ),
+    Hafnaoui = case_when(
+      distance == 500 ~ 58.69,
+      distance == 1200 ~ 58.40,
+      TRUE ~ Hafnaoui
+    )
+  )
+
 
 df_ss_wide <- table_ss |> 
   select(1,4) |> 
@@ -57,7 +83,15 @@ df_ss_wide <- table_ss |>
     Liebmann = str_remove(Liebmann, "\\s*\\(.*?\\)"),
     across(everything(), as.numeric))
 
-df_wide <- left_join(df_mss_wide, df_ss_wide)
+df_ss_last50 <- tibble(
+  distance = 1500,
+  Liebmann = 27.39
+)
+
+df_wide <- left_join(df_ss_wide, df_mss_wide)
+
+df_last50_wide <- full_join(df_ss_last50, df_mss_last50, by = "distance")
+
 
 df_long <- df_wide |> 
   pivot_longer(
@@ -66,5 +100,15 @@ df_long <- df_wide |>
     values_to = "time"
   )
 
+df_last50_long <- df_last50_wide |> 
+  pivot_longer(
+    cols = -distance,
+    names_to = "swimmer",
+    values_to = "time"
+  )
+
+
 dir.create("data", showWarnings = FALSE, recursive = TRUE)
-write_csv(df_wide, "data/mens_1500_fr_wr.csv")
+write_csv(df_long, "data/mens_1500_fr_wr.csv")
+write_csv(df_last50_long, "data/mens_1500_fr_wr_last50.csv")
+
